@@ -1,12 +1,10 @@
 account_id = "6eababa1621550fb2dbc673005c5ac89"
-name = "houstonbot"
+name = "bombsh-discord-bot"
 main = "./src/index.ts"
-compatibility_date = "2023-11-08"
-
-node_compat = true
+compatibility_date = "2025-04-22"
 
 workers_dev = false
-routes = [{ pattern = "houstonbot.dev", custom_domain = true }]
+routes = [{ pattern = "discord-bot.bomb.sh", custom_domain = true }]
 
 # Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
 # Note: Use secrets to store sensitive data.

@@ -1,17 +1,3 @@
 {
-	"compilerOptions": {
-		"types": ["@cloudflare/workers-types"],
-		"lib": ["ESNext"],
-		"module": "ESNext",
-		"target": "ESNext",
-		"strict": true,
-		"moduleResolution": "Node10",
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"outDir": "dist",
-		"sourceMap": true,
-		"rootDir": "./src"
-	},
-	"include": ["src/**/*"]
+  "extends": "@bomb.sh/tools/tsconfig.json"
 }

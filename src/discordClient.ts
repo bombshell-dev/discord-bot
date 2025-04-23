@@ -1,14 +1,15 @@
-import { APIBaseInteraction, InteractionResponseType, InteractionType, MessageFlags } from 'discord-api-types/v10';
-import { Env } from '.';
+import type { APIBaseInteraction, InteractionType } from 'discord-api-types/v10';
+import { InteractionResponseType, MessageFlags } from 'discord-api-types/v10';
+import type { Env } from './types.ts';
 
 class DiscordResponse extends Response {
-	constructor(body?: any, init?: ResponseInit) {
+	constructor(body?: Record<string|number|symbol, unknown>, _init?: ResponseInit) {
 		const jsonBody = JSON.stringify(body);
-		init = init || {
+		const init = _init ?? {
 			headers: {
 				'content-type': 'application/json;charset=UTF-8',
 			},
-		};
+		}
 		super(jsonBody, init);
 	}
 }
@@ -27,7 +28,7 @@ export type DeferOptions = {
 	hidden?: boolean;
 };
 
-export class InteractionClient<Type extends InteractionType, Data> extends DiscordClient {
+export class InteractionClient<Type extends InteractionType = InteractionType, Data = any> extends DiscordClient {
 	interaction: APIBaseInteraction<Type, Data>;
 
 	constructor(interaction: APIBaseInteraction<Type, any>, env: Env, ctx: ExecutionContext) {
@@ -36,24 +37,24 @@ export class InteractionClient<Type extends InteractionType, Data> extends Disco
 		this.interaction = interaction;
 	}
 
-	deferReply(options: DeferOptions, promise?: () => Promise<any>): DiscordResponse {
+	deferReply(options: DeferOptions, promise?: () => Promise<Record<string, unknown>>): Response {
 		if (promise) {
 			this.ctx.waitUntil(promise());
 		}
 
-		let data: any = {};
+		const data: Record<string, unknown> = {};
 
 		if (options.hidden) {
 			data.flags = MessageFlags.Ephemeral;
 		}
 
-		return new DiscordResponse({
+		return Response.json({
 			type: InteractionResponseType.DeferredChannelMessageWithSource,
 			data,
 		});
 	}
 
-	deferUpdate(promise?: () => Promise<any>): DiscordResponse {
+	deferUpdate(promise?: () => Promise<void>): DiscordResponse {
 		if (promise) {
 			this.ctx.waitUntil(promise());
 		}
@@ -63,14 +64,14 @@ export class InteractionClient<Type extends InteractionType, Data> extends Disco
 		});
 	}
 
-	reply(data: any): DiscordResponse {
+	reply(data: Record<string, unknown>): DiscordResponse {
 		return new DiscordResponse({
 			type: InteractionResponseType.ChannelMessageWithSource,
 			data,
 		});
 	}
 
-	autocomplete(choices: any): DiscordResponse {
+	autocomplete(choices: string[]): DiscordResponse {
 		return new DiscordResponse({
 			type: InteractionResponseType.ApplicationCommandAutocompleteResult,
 			data: {

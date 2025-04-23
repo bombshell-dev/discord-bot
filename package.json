@@ -1,56 +1,46 @@
 {
-	"name": "houston-bot",
+	"name": "@bomb.sh/discord-bot",
 	"private": true,
-	"version": "1.0.0",
-	"description": "",
+	"version": "0.0.0",
 	"main": "src/index.ts",
 	"type": "module",
 	"scripts": {
 		"start": "wrangler dev",
 		"dev": "wrangler dev",
-		"preinstall": "npx only-allow pnpm",
-		"lint": "eslint . --report-unused-disable-directives",
-		"format": "pnpm run format:code",
-		"format:ci": "pnpm run format:imports && pnpm run format:code",
-		"format:code": "prettier . -w --cache",
-		"format:imports": "organize-imports-cli ./tsconfig.json",
-		"register": "tsc -p register.tsconfig.json && node ./dist/register.js",
-		"collect:stats": "tsm src/stats.ts"
+		"build": "bsh build",
+		"format": "bsh format",
+		"lint": "bsh lint",
+		"register": "node --env-file .dev.vars --experimental-strip-types --no-warnings ./src/register.ts"
 	},
-	"engines": {
-		"node": ">=18.18.0",
-		"pnpm": ">=8.6.12"
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "22.14.0",
+			"onFail": "error"
+		},
+		"packageManager": {
+			"name": "pnpm",
+			"version": "10.7.0",
+			"onFail": "error"
+		}
 	},
-	"packageManager": "pnpm@8.6.12",
+	"packageManager": "pnpm@10.7.0",
 	"dependencies": {
-		"@algolia/requester-fetch": "^4.20.0",
-		"@discordjs/builders": "^1.7.0",
-		"@discordjs/rest": "^2.2.0",
-		"@octokit/request-error": "^5.0.1",
-		"@octokit/rest": "^20.0.2",
-		"algoliasearch": "^4.20.0",
-		"discord-api-types": "^0.37.63",
+		"@discordjs/builders": "^1.10.1",
+		"@discordjs/rest": "^2.4.3",
+		"@octokit/request-error": "^5.1.1",
+		"@octokit/rest": "^20.1.2",
+		"discord-api-types": "^0.37.120",
 		"discord-interactions": "^3.4.0",
-		"discord.js": "^14.15.3",
-		"dotenv": "^16.3.1",
-		"html-entities": "^2.4.0",
-		"itty-router": "^4.0.23",
-		"node-schedule": "^2.1.1",
-		"organize-imports-cli": "^0.10.0",
-		"tsm": "^2.3.0"
+		"discord.js": "^14.18.0",
+		"dotenv": "^16.5.0",
+		"html-entities": "^2.6.0",
+		"itty-router": "^4.2.2"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20240903.0",
-		"@types/node": "^18.17.18",
-		"@types/node-schedule": "^2.1.0",
-		"@typescript-eslint/eslint-plugin": "^6.10.0",
-		"@typescript-eslint/parser": "^6.10.0",
-		"eslint": "^8.53.0",
-		"eslint-config-prettier": "^9.0.0",
-		"eslint-plugin-prettier": "^5.0.1",
-		"prettier": "^3.0.3",
-		"typescript": "^5.2.2",
-		"wrangler": "^3.74.0"
+		"@bomb.sh/tools": "latest",
+		"@cloudflare/workers-types": "^4.20250422.0",
+		"wrangler": "^3.114.7"
 	},
 	"license": "MIT"
 }

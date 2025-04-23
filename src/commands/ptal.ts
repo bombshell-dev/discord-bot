@@ -3,24 +3,22 @@ import { REST } from '@discordjs/rest';
 import { RequestError } from '@octokit/request-error';
 import { Octokit } from '@octokit/rest';
 import {
-	APIButtonComponent,
-	APIButtonComponentWithURL,
-	APIChatInputApplicationCommandInteraction,
-	APIGuild,
-	APIMessageComponentButtonInteraction,
-	APIMessageComponentEmoji,
+	type APIButtonComponent,
+	type APIButtonComponentWithURL,
+	type APIChatInputApplicationCommandInteraction,
+	type APIGuild,
+	type APIMessageComponentButtonInteraction,
+	type APIMessageComponentEmoji,
 	ButtonStyle,
 	InteractionResponseType,
 	InteractionType,
 	Routes,
 } from 'discord-api-types/v10';
-import { Env } from '../index.js';
-import { Command } from '../types.js';
+import type { Command, Env } from '../types.js';
 import { getStringOption } from '../utils/discordUtils.js';
 import { getDefaultEmbed } from '../utils/embeds.js';
 
 let rest: REST;
-
 type InteractionReplyOptions = {};
 
 async function ReplyOrEditReply(
@@ -28,7 +26,7 @@ async function ReplyOrEditReply(
 	replyOptions: InteractionReplyOptions,
 	env: Env
 ) {
-	if (interaction.type == InteractionType.ApplicationCommand) {
+	if (interaction.type === InteractionType.ApplicationCommand) {
 		await rest.patch(Routes.webhookMessage(env.DISCORD_CLIENT_ID, interaction.token), {
 			body: {
 				...replyOptions,
@@ -71,11 +69,11 @@ async function TryGetEmojiFromURL(
 	env: Env
 ): Promise<APIMessageComponentEmoji> {
 	try {
-		let apexDomain = url.hostname.split('.').at(-2);
+		const apexDomain = url.hostname.split('.').at(-2);
 
-		let guild = (await rest.get(Routes.guild(env.GUILD_ID!))) as APIGuild;
+		const guild = (await rest.get(Routes.guild(env.GUILD_ID!))) as APIGuild;
 
-		let emoji = guild.emojis.find((emoji) => emoji.name == apexDomain);
+		const emoji = guild.emojis.find((emoji) => emoji.name == apexDomain);
 
 		if (emoji) {
 			return { name: emoji.name!, id: emoji.id!, animated: emoji.animated! };
@@ -86,7 +84,7 @@ async function TryGetEmojiFromURL(
 }
 
 function GetStringFromEmoji(emoji: APIMessageComponentEmoji) {
-	if (emoji.id == undefined) {
+	if (emoji.id === undefined) {
 		return emoji.name;
 	}
 
@@ -128,7 +126,7 @@ function GetHumanStatusFromPullRequestState(state: PullRequestState): string {
 	}
 }
 
-function GetReviewStateFromReview(state: string): PullRequestState {
+function getReviewStateFromReview(state: string): PullRequestState {
 	switch (state) {
 		case 'COMMENTED':
 		case 'DISMISSED':
@@ -158,10 +156,10 @@ const generateReplyFromInteraction = async (
 		emoji = emoji.trim();
 	}
 
-	let urls: string[] = [];
-	let components: any[] = [];
+	const urls: string[] = [];
+	const components: ButtonBuilder[] = [];
 	const isUpdate = interaction.type === InteractionType.MessageComponent;
-	let embed = getDefaultEmbed();
+	const embed = getDefaultEmbed();
 
 	const githubOption = github;
 	const deploymentOption = deployment;
@@ -171,9 +169,9 @@ const generateReplyFromInteraction = async (
 	let pr_state: PullRequestState = 'PENDING';
 
 	if (deploymentOption) {
-		let deployment = await TryParseURL(deploymentOption, interaction, env);
+		const deployment = await TryParseURL(deploymentOption, interaction, env);
 		if (deployment) {
-			let deploymentLink = new ButtonBuilder()
+			const deploymentLink = new ButtonBuilder()
 				.setEmoji(await TryGetEmojiFromURL(deployment, interaction, env))
 				.setLabel('View as Preview')
 				.setStyle(ButtonStyle.Link)
@@ -205,28 +203,28 @@ const generateReplyFromInteraction = async (
 			return null;
 		}
 
-		let groups = match.groups!;
+		const groups = match.groups!;
 
 		const pr_info = {
 			owner: groups['ORGANISATION'] ?? 'withastro',
 			repo: groups['REPOSITORY'],
-			pull_number: parseInt(groups['NUMBER']),
+			pull_number: Number.parseInt(groups['NUMBER']),
 		};
 
-		let url = `https://github.com/${pr_info.owner}/${pr_info.repo}/pull/${pr_info.pull_number}`;
+		const url = `https://github.com/${pr_info.owner}/${pr_info.repo}/pull/${pr_info.pull_number}`;
 		embed.addFields({ name: 'Repository', value: `[${pr_info.owner}/${pr_info.repo}#${pr_info.pull_number}](${url})` });
 		embed.setURL(url);
 
-		let githubLink = new ButtonBuilder()
+		const githubLink = new ButtonBuilder()
 			.setEmoji(await TryGetEmojiFromURL(new URL(url), interaction, env))
 			.setLabel('View on Github')
 			.setStyle(ButtonStyle.Link)
 			.setURL(url);
 		components.push(githubLink);
 
-		let urlFiles = `${url}/files`;
+		const urlFiles = `${url}/files`;
 
-		let githubFilesLink = new ButtonBuilder()
+		const githubFilesLink = new ButtonBuilder()
 			.setEmoji({ name: '📁', animated: false, id: undefined })
 			.setLabel('Files')
 			.setStyle(ButtonStyle.Link)
@@ -234,10 +232,10 @@ const generateReplyFromInteraction = async (
 		components.push(githubFilesLink);
 
 		try {
-			let pr = await octokit.rest.pulls.get(pr_info);
+			const pr = await octokit.rest.pulls.get(pr_info);
 			embed.setAuthor({ name: pr.data.user.login, iconURL: `https://github.com/${pr.data.user.login}.png` });
 
-			let reviewTracker: string[] = [];
+			const reviewTracker: string[] = [];
 			if (pr.data.state === 'closed') {
 				if (pr.data.merged) {
 					pr_state = 'MERGED';
@@ -251,10 +249,10 @@ const generateReplyFromInteraction = async (
 				embed.setTitle(`[${pr_state}] ${pr.data.title}`);
 			}
 
-			let { data: reviews } = await octokit.rest.pulls.listReviews({ ...pr_info, per_page: 100 });
+			const { data: reviews } = await octokit.rest.pulls.listReviews({ ...pr_info, per_page: 100 });
 			const reviewsByUser = new Map<string, PullRequestState>();
 			const reviewURLs = new Map<string, string>();
-			for (let { state: rawState, user, html_url } of reviews) {
+			for (const { state: rawState, user, html_url } of reviews) {
 				const id = user?.login;
 				if (!id) continue;
 				// Filter out reviews from the author and GitHub Actions, they aren't relevant
@@ -262,7 +260,7 @@ const generateReplyFromInteraction = async (
 					continue;
 				}
 				const current = reviewsByUser.get(id);
-				const state = GetReviewStateFromReview(rawState);
+				const state = getReviewStateFromReview(rawState);
 				if (state === 'REVIEWED' && current) {
 					// Plain reviews after an approval/block should not factor into the overall status
 					continue;
@@ -368,10 +366,10 @@ const generateReplyFromInteraction = async (
 		components.push(refreshButton);
 	}
 
-	let actionRow = new ActionRowBuilder<ButtonBuilder>();
+	const actionRow = new ActionRowBuilder<ButtonBuilder>();
 	actionRow.addComponents(...components);
 	return {
-		content: `${emoji != ' ' && emoji != null ? `${emoji} ` : ''}**PTAL** ${description}`,
+		content: `${emoji !== ' ' && emoji != null ? `${emoji} ` : ''}**PTAL** ${description}`,
 		embeds: [embed.toJSON()],
 		components: [actionRow.toJSON()],
 	};
@@ -438,7 +436,7 @@ const command: Command = {
 	},
 	async button(client) {
 		return client.deferUpdate(async () => {
-			let parts = client.interaction.data.custom_id.split('-');
+			const parts = client.interaction.data.custom_id.split('-');
 
 			if (parts[1] == 'refresh') {
 				const title: string = client.interaction.message.content;
@@ -470,7 +468,7 @@ const command: Command = {
 				}
 
 				const urlList: string = client.interaction.message.embeds[0].description;
-				let urls: string[] = [];
+				const urls: string[] = [];
 
 				if (urlList && urlList.length > 0) {
 					const lines = urlList.split('\n');

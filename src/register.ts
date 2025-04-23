@@ -1,6 +1,6 @@
-import { RESTPostAPIApplicationCommandsJSONBody, Routes } from 'discord-api-types/v10';
-import dotenv from 'dotenv';
 import path from 'node:path';
+import { type RESTPostAPIApplicationCommandsJSONBody, Routes } from 'discord-api-types/v10';
+import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.dev.vars') });
 
@@ -10,20 +10,17 @@ if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID) {
 }
 
 import { REST } from '@discordjs/rest';
-import CommandList from './commands/index.js';
-import { Command } from './types';
+import { commands } from './commands/index.js';
 
 const rest: REST = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
-let commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
-for (const commandName in CommandList) {
-	const command: Command = CommandList[commandName];
-
-	commands.push(command.data.toJSON());
+const registry: RESTPostAPIApplicationCommandsJSONBody[] = [];
+for (const command of Object.values(commands)) {
+	registry.push(command.data.toJSON());
 }
 
 console.log(`Started refreshing ${commands.length} commands.`);
 
-const data: any = await rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), { body: commands });
+const data = await rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), { body: commands });
 
-console.log(`Successfully reloaded ${data.length} commands.`);
+console.log(`Successfully reloaded ${registry.length} commands.`);

@@ -7,9 +7,7 @@ on:
       - main
 
 jobs:
-  prettier:
-    if: github.repository_owner == 'withastro'
-    uses: withastro/automation/.github/workflows/format.yml@main
-    with:
-      command: "format:ci"
+  format:
+    if: github.repository_owner == 'bombshell-dev'
+    uses: bombshell-dev/automation/.github/workflows/format.yml@main
     secrets: inherit
