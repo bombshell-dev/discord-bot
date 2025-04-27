@@ -10,7 +10,6 @@ if (!env.DISCORD_TOKEN || !env.DISCORD_CLIENT_ID) {
 	process.exit(1);
 }
 
-
 import { REST } from '@discordjs/rest';
 import { commands } from './commands/index.ts';
 
