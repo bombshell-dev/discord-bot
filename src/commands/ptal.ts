@@ -14,9 +14,9 @@ import {
 	InteractionType,
 	Routes,
 } from 'discord-api-types/v10';
-import type { Command, Env } from '../types.js';
-import { getStringOption } from '../utils/discordUtils.js';
-import { getDefaultEmbed } from '../utils/embeds.js';
+import type { Command, Env } from '../types.ts';
+import { getStringOption } from '../utils/discordUtils.ts';
+import { getDefaultEmbed } from '../utils/embeds.ts';
 
 let rest: REST;
 type InteractionReplyOptions = {};
@@ -92,7 +92,7 @@ function GetStringFromEmoji(emoji: APIMessageComponentEmoji) {
 }
 
 type PullRequestState = 'PENDING' | 'REVIEWED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'MERGED' | 'CLOSED';
-// values copied from https://github.com/discordjs/discord.js/blob/main/packages/discord.js/src/util/Colors.js
+// values copied from https://github.com/discordjs/discord.ts/blob/main/packages/discord.ts/src/util/Colors.js
 function GetColorFromPullRequestState(state: PullRequestState): number {
 	switch (state) {
 		case 'PENDING':

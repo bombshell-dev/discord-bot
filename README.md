@@ -9,7 +9,7 @@ git clone https://github.com/withastro/houston-discord
 pnpm install
 ```
 
-After having cloned the repository and having all dependencies installed, you'll want to create a file for your enviroment variables. To do this, make a copy of `.dev.vars.example` and rename that to `.dev.vars`. To run the bot locally, you will need to create a discord bot. There are plent of guides online on how to do this.
+After having cloned the repository and having all dependencies installed, you'll want to create a file for your enviroment variables. To do this, make a copy of `.dev.vars.example` and rename that to `.dev.vars`. To run the bot locally, you will need to create a discord bot. There are plenty of guides online on how to do this.
 
 After you have created your bot, set `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` and `DISCORD_PUBLIC_KEY` in your newly created `.dev.vars` file. If you want to use commands that require any other enviroment variables, remove the comment and set those values too.
 

@@ -10,7 +10,7 @@ if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID) {
 }
 
 import { REST } from '@discordjs/rest';
-import { commands } from './commands/index.js';
+import { commands } from './commands/index.ts';
 
 const rest: REST = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
@@ -19,8 +19,9 @@ for (const command of Object.values(commands)) {
 	registry.push(command.data.toJSON());
 }
 
-console.log(`Started refreshing ${commands.length} commands.`);
+console.log(`Started refreshing ${Object.keys(commands).length} commands.`);
 
 const data = await rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), { body: commands });
+console.log(data);
 
-console.log(`Successfully reloaded ${registry.length} commands.`);
+console.log(`Successfully reloaded ${Object.keys(commands).length} commands.`);

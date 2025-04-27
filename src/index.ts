@@ -12,14 +12,20 @@ import { InteractionResponseType } from 'discord-interactions';
 import { Router } from 'itty-router';
 import { commands } from './commands/index.ts';
 import { InteractionClient } from './discordClient.ts';
+import { DiscordBotDurableObject } from './durableObject.ts';
 import type { Env } from './types.ts';
 import { verifyDiscordRequest } from './utils/discordUtils.ts';
+import github from './webhooks/github.ts';
+
+export { DiscordBotDurableObject }
 
 const router = Router();
 
 router.get('/', async () => {
 	return new Response('Hello World!');
 });
+
+router.all('/webhooks/github', github);
 
 router.post('/', async (request, env: Env, ctx: ExecutionContext) => {
 	const discordRequestData = await verifyDiscordRequest(request, env);

@@ -1,9 +1,9 @@
-import type { SlashCommandBuilder } from "@discordjs/builders"
+import type { SlashCommandOptionsOnlyBuilder } from "@discordjs/builders"
 import type { APIApplicationCommandAutocompleteInteraction, APIApplicationCommandInteractionData, APIMessageComponentInteractionData, InteractionType } from "discord-api-types/v10"
 import type { InteractionClient } from "./discordClient.ts"
 
 export interface Command {
-    data: Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">,
+    data: SlashCommandOptionsOnlyBuilder,
     initialize?(env?: Env): boolean | Promise<boolean>,
     execute(client: InteractionClient<InteractionType.ApplicationCommand, APIApplicationCommandInteractionData>): Response,
     autocomplete?(client: InteractionClient<InteractionType.ApplicationCommandAutocomplete, APIApplicationCommandAutocompleteInteraction>): Response;

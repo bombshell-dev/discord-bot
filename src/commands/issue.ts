@@ -47,7 +47,7 @@ const messages = [
   "I’m just here to redirect traffic. <Please create an issue on GitHub>.",
   "This may require a smarter entity. <Please open a ticket>.",
   "Your feedback is statistically invaluable. <Please create a new issue>.",
-  "This might be a feature. But probably a bug. <Let’s confirm via an issue>."
+  "This might be a feature! But probably a bug. <Let’s confirm via an issue>."
 ]
 
 const command: Command = {
@@ -67,7 +67,9 @@ const command: Command = {
 
 		const message = random(messages);
 		const repoURL = new URL(`https://github.com/bombshell-dev/${repo}/`);
-		const issueURL = new URL('./issues/new/choose', repoURL);
+    const issueURL = new URL('./issues/new/choose', repoURL);
+    const content = addLink(message, issueURL);
+    
 		const emoji = { id: '948999573907570768', name: 'github', animated: false };
 		const button = new ButtonBuilder()
 			.setStyle(ButtonStyle.Link)
@@ -78,7 +80,7 @@ const command: Command = {
 		const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
 
 		return client.reply({
-			content: addLink(message, issueURL),
+			content,
 			flags: MessageFlags.SuppressEmbeds,
 			components: [buttonRow.toJSON()],
 		});
