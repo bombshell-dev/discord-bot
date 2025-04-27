@@ -1,4 +1,3 @@
-import type { ExecutionContext } from '@cloudflare/workers-types';
 import type {
 	APIApplicationCommandAutocompleteInteraction,
 	APIApplicationCommandInteractionData,

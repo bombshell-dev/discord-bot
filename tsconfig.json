@@ -1,7 +1,4 @@
 {
   "extends": "@bomb.sh/tools/tsconfig.json",
-  "compilerOptions": {
-    "types": ["@cloudflare/workers-types"],
-  },
   "include": ["worker-configuration.d.ts", "src/**/*.ts"]
 }
