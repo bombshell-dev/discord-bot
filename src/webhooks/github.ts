@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 // import { ptalTable } from "@/db/schema";
 // import { useDB } from "@/utils/global/useDB";
 // import { editPtalMessage } from "@/utils/ptal/editPtalMessage";
@@ -7,7 +8,7 @@ type PullRequestCallback = EmitterWebhookEvent<'pull_request'>;
 type PullRequestReviewCallback = EmitterWebhookEvent<'pull_request_review'>;
 
 const webhooks = new Webhooks({
-    secret: process.env.GITHUB_WEBHOOK_SECRET,
+    secret: env.GITHUB_WEBHOOK_SECRET,
 });
 
 async function handlePullRequestChange(pr: PullRequestCallback) {
