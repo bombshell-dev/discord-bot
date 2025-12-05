@@ -17,6 +17,7 @@ import {
 import type { Command, Env } from '../types.ts';
 import { getStringOption } from '../utils/discordUtils.ts';
 import { getDefaultEmbed } from '../utils/embeds.ts';
+import { getConfigDurableObject, getGuildId, getChannelId } from '../utils/configUtils.ts';
 
 let rest: REST;
 type InteractionReplyOptions = {};
@@ -145,9 +146,10 @@ let octokit: Octokit;
 
 const generateReplyFromInteraction = async (
 	description: string,
-	github: string,
+	github: string | null,
 	interaction: APIChatInputApplicationCommandInteraction | APIMessageComponentButtonInteraction,
 	env: Env,
+	defaultRepository?: string | null,
 	deployment?: string,
 	other?: string,
 	emoji?: string
@@ -192,22 +194,54 @@ const generateReplyFromInteraction = async (
 
 	//github
 	{
+		// If no github option is provided, we need a default repository
+		if (!githubOption) {
+			await ReplyOrEditReply(
+				interaction,
+				{
+					content:
+						"⚠️ No GitHub PR link or number provided, and no default repository is configured.\n\n" +
+						"Either:\n" +
+						"• Provide a PR link or number in the `github` option\n" +
+						"• Set a default repository using `/config set-default-repo`",
+				},
+				env
+			);
+			return null;
+		}
+
 		const githubRE =
 			/((https:\/\/)?github\.com\/)?(?<ORGANISATION>[^\/]+)\/(?<REPOSITORY>[^\/]+)\/pull\/(?<NUMBER>\d+)/;
 		const otherRE = /((?<ORGANISATION>[^\/]+)\/)?(?<REPOSITORY>[^(#|\s|\/)]+)(#)(?<NUMBER>\d+)/;
+		const numberOnlyRE = /^(?<NUMBER>\d+)$/;
 
-		const match = githubOption.match(githubRE) || githubOption.match(otherRE);
+		const match = githubOption.match(githubRE) || githubOption.match(otherRE) || githubOption.match(numberOnlyRE);
 		if (!match) {
-			await ReplyOrEditReply(interaction, { content: "The github PR entered wasn't in a supported format" }, env);
+			await ReplyOrEditReply(
+				interaction,
+				{ content: "The github PR entered wasn't in a supported format" },
+				env
+			);
 
 			return null;
 		}
 
 		const groups = match.groups!;
 
+		// Parse default repository if provided
+		let defaultOwner: string | undefined;
+		let defaultRepo: string | undefined;
+		if (defaultRepository) {
+			const repoParts = defaultRepository.split('/');
+			if (repoParts.length === 2) {
+				defaultOwner = repoParts[0];
+				defaultRepo = repoParts[1];
+			}
+		}
+
 		const pr_info = {
-			owner: groups['ORGANISATION'] ?? 'withastro',
-			repo: groups['REPOSITORY'],
+			owner: groups['ORGANISATION'] ?? defaultOwner ?? 'withastro',
+			repo: groups['REPOSITORY'] ?? defaultRepo ?? 'withastro.github.io',
 			pull_number: Number.parseInt(groups['NUMBER']),
 		};
 
@@ -380,7 +414,10 @@ const command: Command = {
 		.setName('ptal')
 		.setDescription('Open a Please Take a Look (PTAL) request')
 		.addStringOption((option) =>
-			option.setName('github').setDescription('A link to a GitHub pull request').setRequired(true)
+			option
+				.setName('github')
+				.setDescription('A GitHub PR link, repo#number, or just number (uses default repo)')
+				.setRequired(false)
 		)
 		.addStringOption((option) =>
 			option.setName('description').setDescription('A short description of the PTAL request').setRequired(true)
@@ -411,11 +448,22 @@ const command: Command = {
 	},
 	async execute(client) {
 		return client.deferReply({}, async () => {
+			// Get default repository from configuration
+			const guildId = getGuildId(client.interaction);
+			const channelId = getChannelId(client.interaction);
+			let defaultRepository: string | null = null;
+
+			if (guildId) {
+				const configDO = getConfigDurableObject(client.env);
+				defaultRepository = await configDO.getDefaultRepository(guildId, channelId || undefined);
+			}
+
 			const reply = await generateReplyFromInteraction(
 				getStringOption(client.interaction.data, 'description')!,
-				getStringOption(client.interaction.data, 'github')!,
+				getStringOption(client.interaction.data, 'github'),
 				client.interaction,
 				client.env,
+				defaultRepository,
 				getStringOption(client.interaction.data, 'deployment'),
 				getStringOption(client.interaction.data, 'other'),
 				getStringOption(client.interaction.data, 'type')
@@ -483,11 +531,22 @@ const command: Command = {
 					}
 				}
 
+				// Get default repository from configuration
+				const guildId = getGuildId(client.interaction);
+				const channelId = getChannelId(client.interaction);
+				let defaultRepository: string | null = null;
+
+				if (guildId) {
+					const configDO = getConfigDurableObject(client.env);
+					defaultRepository = await configDO.getDefaultRepository(guildId, channelId || undefined);
+				}
+
 				const reply = await generateReplyFromInteraction(
 					description,
 					githubURL,
 					client.interaction,
 					client.env,
+					defaultRepository,
 					deploymentURL,
 					urls.join(','),
 					emoji

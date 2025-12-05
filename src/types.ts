@@ -1,6 +1,7 @@
 import type { SlashCommandOptionsOnlyBuilder } from "@discordjs/builders"
 import type { APIApplicationCommandAutocompleteInteraction, APIApplicationCommandInteractionData, APIMessageComponentInteractionData, InteractionType } from "discord-api-types/v10"
 import type { InteractionClient } from "./discordClient.ts"
+import type { DiscordBotDurableObject } from "./durableObject.ts"
 
 export interface Command {
     data: SlashCommandOptionsOnlyBuilder,
@@ -16,4 +17,23 @@ export interface Env {
     DISCORD_CLIENT_ID: string;
     GITHUB_TOKEN?: string;
     GUILD_ID?: string;
+    DISCORD_BOT_DURABLE_OBJECT: DurableObjectNamespace<DiscordBotDurableObject>;
+}
+
+// Configuration types
+export interface ChannelConfig {
+    defaultRepository?: string; // e.g., "owner/repo"
+    features?: {
+        ptal?: boolean;
+        issue?: boolean;
+    };
+}
+
+export interface GuildConfig {
+    guildId: string;
+    defaultRepository?: string; // Guild-wide default repository
+    githubAppInstalled?: boolean; // Track if GitHub app is installed
+    channels?: {
+        [channelId: string]: ChannelConfig;
+    };
 }
