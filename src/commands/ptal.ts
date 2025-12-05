@@ -143,6 +143,19 @@ function getReviewStateFromReview(state: string): PullRequestState {
 
 let octokit: Octokit;
 
+interface PRInfo {
+	owner: string;
+	repo: string;
+	pull_number: number;
+}
+
+interface GenerateReplyResult {
+	content: string;
+	embeds: any[];
+	components: any[];
+	prInfo: PRInfo;
+}
+
 const generateReplyFromInteraction = async (
 	description: string,
 	github: string,
@@ -151,7 +164,7 @@ const generateReplyFromInteraction = async (
 	deployment?: string,
 	other?: string,
 	emoji?: string
-): Promise<any> => {
+): Promise<GenerateReplyResult | null> => {
 	if (emoji) {
 		emoji = emoji.trim();
 	}
@@ -167,6 +180,7 @@ const generateReplyFromInteraction = async (
 
 	let content = '';
 	let pr_state: PullRequestState = 'PENDING';
+	let pr_info: PRInfo | null = null;
 
 	if (deploymentOption) {
 		const deployment = await TryParseURL(deploymentOption, interaction, env);
@@ -205,7 +219,7 @@ const generateReplyFromInteraction = async (
 
 		const groups = match.groups!;
 
-		const pr_info = {
+		pr_info = {
 			owner: groups['ORGANISATION'] ?? 'withastro',
 			repo: groups['REPOSITORY'],
 			pull_number: Number.parseInt(groups['NUMBER']),
@@ -372,8 +386,234 @@ const generateReplyFromInteraction = async (
 		content: `${emoji !== ' ' && emoji != null ? `${emoji} ` : ''}**PTAL** ${description}`,
 		embeds: [embed.toJSON()],
 		components: [actionRow.toJSON()],
+		prInfo: pr_info!,
 	};
 };
+
+/**
+ * Generate embed for webhook updates (no interaction context needed)
+ * This is exported for use by the GitHub webhook handler
+ */
+export async function generateEmbedForPR(
+	github: string,
+	env: Env,
+	deployment?: string,
+	other?: string,
+	emoji?: string
+): Promise<{ content: string; embeds: any[]; components: any[] } | null> {
+	try {
+		if (!octokit) {
+			if (!env.GITHUB_TOKEN) {
+				console.error('Missing GITHUB_TOKEN');
+				return null;
+			}
+			octokit = new Octokit({ auth: env.GITHUB_TOKEN });
+		}
+		if (!rest) {
+			rest = new REST({ version: '10' }).setToken(env.DISCORD_TOKEN);
+		}
+
+		if (emoji) {
+			emoji = emoji.trim();
+		}
+
+		const urls: string[] = [];
+		const components: ButtonBuilder[] = [];
+		const embed = getDefaultEmbed();
+
+		let content = '';
+		let pr_state: PullRequestState = 'PENDING';
+		let pr_info: PRInfo | null = null;
+
+		// Parse deployment URL
+		if (deployment) {
+			try {
+				const deploymentUrl = new URL(deployment.trim());
+				const deploymentLink = new ButtonBuilder()
+					.setEmoji({ name: '🚀', animated: false, id: undefined })
+					.setLabel('View as Preview')
+					.setStyle(ButtonStyle.Link)
+					.setURL(deploymentUrl.href);
+				components.push(deploymentLink);
+			} catch {
+				console.error('Invalid deployment URL:', deployment);
+			}
+		}
+
+		// Parse other URLs
+		if (other) {
+			urls.push(...other.split(','));
+		}
+
+		embed.setFooter({
+			text: 'Auto-updated by GitHub webhook',
+		});
+		embed.setTimestamp(new Date());
+
+		// Parse GitHub PR URL
+		const githubRE = /((https:\/\/)?github\.com\/)?(?<ORGANISATION>[^\/]+)\/(?<REPOSITORY>[^\/]+)\/pull\/(?<NUMBER>\d+)/;
+		const otherRE = /((?<ORGANISATION>[^\/]+)\/)?(?<REPOSITORY>[^(#|\s|\/)]+)(#)(?<NUMBER>\d+)/;
+
+		const match = github.match(githubRE) || github.match(otherRE);
+		if (!match) {
+			console.error('Invalid GitHub PR URL format:', github);
+			return null;
+		}
+
+		const groups = match.groups!;
+		pr_info = {
+			owner: groups['ORGANISATION'] ?? 'withastro',
+			repo: groups['REPOSITORY'],
+			pull_number: Number.parseInt(groups['NUMBER']),
+		};
+
+		const url = `https://github.com/${pr_info.owner}/${pr_info.repo}/pull/${pr_info.pull_number}`;
+		embed.addFields({ name: 'Repository', value: `[${pr_info.owner}/${pr_info.repo}#${pr_info.pull_number}](${url})` });
+		embed.setURL(url);
+
+		const githubLink = new ButtonBuilder()
+			.setEmoji({ name: '🔗', animated: false, id: undefined })
+			.setLabel('View on Github')
+			.setStyle(ButtonStyle.Link)
+			.setURL(url);
+		components.push(githubLink);
+
+		const urlFiles = `${url}/files`;
+		const githubFilesLink = new ButtonBuilder()
+			.setEmoji({ name: '📁', animated: false, id: undefined })
+			.setLabel('Files')
+			.setStyle(ButtonStyle.Link)
+			.setURL(urlFiles);
+		components.push(githubFilesLink);
+
+		// Fetch PR data from GitHub
+		try {
+			const pr = await octokit.rest.pulls.get(pr_info);
+			embed.setAuthor({ name: pr.data.user.login, iconURL: `https://github.com/${pr.data.user.login}.png` });
+
+			const reviewTracker: string[] = [];
+			if (pr.data.state === 'closed') {
+				if (pr.data.merged) {
+					pr_state = 'MERGED';
+				} else {
+					pr_state = 'CLOSED';
+				}
+			}
+			if (pr.data.state === 'open') {
+				embed.setTitle(pr.data.title);
+			} else {
+				embed.setTitle(`[${pr_state}] ${pr.data.title}`);
+			}
+
+			const { data: reviews } = await octokit.rest.pulls.listReviews({ ...pr_info, per_page: 100 });
+			const reviewsByUser = new Map<string, PullRequestState>();
+			const reviewURLs = new Map<string, string>();
+			for (const { state: rawState, user, html_url } of reviews) {
+				const id = user?.login;
+				if (!id) continue;
+				if (id === pr.data.user.login || id === 'github-actions[bot]' || id === 'astrobot-houston') {
+					continue;
+				}
+				const current = reviewsByUser.get(id);
+				const state = getReviewStateFromReview(rawState);
+				if (state === 'REVIEWED' && current) {
+					continue;
+				}
+				reviewsByUser.set(id, state);
+				reviewURLs.set(id, html_url);
+			}
+			for (const [user, state] of reviewsByUser) {
+				switch (state) {
+					case 'APPROVED': {
+						const link = reviewURLs.get(user);
+						if (pr.data.state === 'open') {
+							reviewTracker.push(`[✅ @${user}](${link})`);
+						} else {
+							reviewTracker.push(`✅`);
+						}
+						if (pr.data.state === 'open' && pr_state !== 'CHANGES_REQUESTED') {
+							pr_state = state;
+						}
+						break;
+					}
+					case 'CHANGES_REQUESTED': {
+						const link = reviewURLs.get(user);
+						if (pr.data.state === 'open') {
+							reviewTracker.push(`[⭕ @${user}](${link})`);
+						} else {
+							reviewTracker.push(`⭕`);
+						}
+						if (pr.data.state === 'open' && user !== 'github-actions[bot]') {
+							pr_state = state;
+						}
+						break;
+					}
+					case 'REVIEWED': {
+						const link = reviewURLs.get(user);
+						if (pr.data.state === 'open') {
+							reviewTracker.push(`[💬 @${user}](${link})`);
+						} else {
+							reviewTracker.push(`💬`);
+						}
+
+						if (pr.data.state === 'open' && pr_state === 'PENDING') {
+							pr_state = state;
+						}
+					}
+				}
+			}
+			embed.setColor(GetColorFromPullRequestState(pr_state));
+			embed.addFields({ name: 'Status', value: GetHumanStatusFromPullRequestState(pr_state), inline: true });
+
+			const { data: files } = await octokit.rest.pulls.listFiles(pr_info);
+			const changesets = files.filter((file) => file.filename.startsWith('.changeset/') && file.status == 'added');
+			embed.addFields({ name: 'Changeset', value: changesets.length > 0 ? '✅ Added' : '⬜ None', inline: true });
+
+			if (reviewTracker.length > 0) {
+				embed.addFields({ name: 'Reviews', value: reviewTracker.join(pr.data.state === 'open' ? '\n' : '') });
+			}
+		} catch (error) {
+			console.error('Error fetching PR data:', error);
+			return null;
+		}
+
+		// Parse other URLs for description
+		for (const urlStr of urls) {
+			try {
+				const urlObject = new URL(urlStr.trim());
+				content += `🔗 <${urlObject.href}>\n`;
+			} catch {
+				console.error('Invalid URL:', urlStr);
+			}
+		}
+
+		if (content.length > 0) {
+			embed.setDescription(content);
+		}
+
+		// Add refresh button for non-finalized PRs
+		if (!['MERGED', 'CLOSED'].includes(pr_state)) {
+			const refreshButton = new ButtonBuilder()
+				.setCustomId(`ptal-refresh`)
+				.setLabel('Refresh')
+				.setStyle(ButtonStyle.Primary)
+				.setEmoji({ name: '🔁', animated: false, id: undefined });
+			components.push(refreshButton);
+		}
+
+		const actionRow = new ActionRowBuilder<ButtonBuilder>();
+		actionRow.addComponents(...components);
+
+		return {
+			content: `${emoji !== ' ' && emoji != null ? `${emoji} ` : ''}**PTAL** (Auto-updated)`,
+			embeds: [embed.toJSON()],
+			components: [actionRow.toJSON()],
+		};
+	} catch (error) {
+		console.error('Error generating embed:', error);
+		return null;
+	}
+}
 
 const command: Command = {
 	data: new SlashCommandBuilder()
@@ -411,14 +651,20 @@ const command: Command = {
 	},
 	async execute(client) {
 		return client.deferReply({}, async () => {
+			const description = getStringOption(client.interaction.data, 'description')!;
+			const github = getStringOption(client.interaction.data, 'github')!;
+			const deployment = getStringOption(client.interaction.data, 'deployment');
+			const other = getStringOption(client.interaction.data, 'other');
+			const emoji = getStringOption(client.interaction.data, 'type');
+
 			const reply = await generateReplyFromInteraction(
-				getStringOption(client.interaction.data, 'description')!,
-				getStringOption(client.interaction.data, 'github')!,
+				description,
+				github,
 				client.interaction,
 				client.env,
-				getStringOption(client.interaction.data, 'deployment'),
-				getStringOption(client.interaction.data, 'other'),
-				getStringOption(client.interaction.data, 'type')
+				deployment,
+				other,
+				emoji
 			);
 			if (!reply) return false;
 
@@ -431,6 +677,35 @@ const command: Command = {
 					...reply,
 				},
 			});
+
+			// Store the message reference in Durable Object for webhook updates
+			try {
+				const message = await rest.get(Routes.webhookMessage(client.env.DISCORD_CLIENT_ID, client.interaction.token, '@original')) as any;
+
+				// Get Durable Object instance
+				const durableObjectId = client.env.DISCORD_BOT_DURABLE_OBJECT.idFromName('ptal-storage');
+				const durableObject = client.env.DISCORD_BOT_DURABLE_OBJECT.get(durableObjectId);
+
+				// Store the PR -> message mapping
+				await durableObject.storePTAL(
+					reply.prInfo.owner,
+					reply.prInfo.repo,
+					reply.prInfo.pull_number,
+					{
+						channelId: message.channel_id,
+						messageId: message.id,
+						webhookToken: client.interaction.token,
+						githubUrl: github,
+						deploymentUrl: deployment,
+						otherUrls: other,
+						emoji: emoji,
+					}
+				);
+			} catch (error) {
+				console.error('Failed to store PTAL message reference:', error);
+				// Don't fail the command if storage fails
+			}
+
 			return true;
 		});
 	},

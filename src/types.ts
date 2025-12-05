@@ -1,6 +1,7 @@
 import type { SlashCommandOptionsOnlyBuilder } from "@discordjs/builders"
 import type { APIApplicationCommandAutocompleteInteraction, APIApplicationCommandInteractionData, APIMessageComponentInteractionData, InteractionType } from "discord-api-types/v10"
 import type { InteractionClient } from "./discordClient.ts"
+import type { DiscordBotDurableObject } from "./durableObject.ts"
 
 export interface Command {
     data: SlashCommandOptionsOnlyBuilder,
@@ -15,5 +16,7 @@ export interface Env {
     DISCORD_PUBLIC_KEY: string;
     DISCORD_CLIENT_ID: string;
     GITHUB_TOKEN?: string;
+    GITHUB_WEBHOOK_SECRET: string;
     GUILD_ID?: string;
+    DISCORD_BOT_DURABLE_OBJECT: DurableObjectNamespace<DiscordBotDurableObject>;
 }
